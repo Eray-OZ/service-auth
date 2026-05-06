@@ -2,7 +2,8 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
-import { User, Provider, Role } from '@prisma/client';
+import type { User } from '@prisma/client';
+import { Provider, Role } from '@prisma/client';
 import { RegisterDto } from './dto';
 import * as crypto from 'crypto';
 
@@ -168,14 +169,23 @@ export class AuthService {
       role: user.role,
     };
 
+    const jwtSecret = this.configService.get<string>('JWT_SECRET');
+    const jwtRefreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
+    const jwtExpiry = this.configService.get<string>('JWT_EXPIRY') || '15m';
+    const jwtRefreshExpiry = this.configService.get<string>('JWT_REFRESH_EXPIRY') || '7d';
+
+    if (!jwtSecret || !jwtRefreshSecret) {
+      throw new Error('JWT secrets are not configured');
+    }
+
     const accessToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_SECRET'),
-      expiresIn: this.configService.get<string>('JWT_EXPIRY'),
+      secret: jwtSecret,
+      expiresIn: jwtExpiry as any,
     });
 
     const refreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRY'),
+      secret: jwtRefreshSecret,
+      expiresIn: jwtRefreshExpiry as any,
     });
 
     return { accessToken, refreshToken };

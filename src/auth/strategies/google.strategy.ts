@@ -6,10 +6,18 @@ import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(private configService: ConfigService) {
+    const clientId = configService.get<string>('GOOGLE_CLIENT_ID');
+    const clientSecret = configService.get<string>('GOOGLE_CLIENT_SECRET');
+    const callbackURL = configService.get<string>('GOOGLE_CALLBACK_URL');
+    
+    if (!clientId || !clientSecret || !callbackURL) {
+      throw new Error('Google OAuth credentials are not configured');
+    }
+    
     super({
-      clientID: configService.get<string>('GOOGLE_CLIENT_ID'),
-      clientSecret: configService.get<string>('GOOGLE_CLIENT_SECRET'),
-      callbackURL: configService.get<string>('GOOGLE_CALLBACK_URL'),
+      clientID: clientId,
+      clientSecret: clientSecret,
+      callbackURL: callbackURL,
       scope: ['email', 'profile'],
     });
   }
@@ -17,11 +25,15 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   async validate(accessToken: string, refreshToken: string, profile: Profile) {
     const { name, emails, photos } = profile;
     
+    if (!emails || emails.length === 0) {
+      throw new Error('No email found in Google profile');
+    }
+    
     return {
       email: emails[0].value,
-      firstName: name.givenName,
-      lastName: name.familyName,
-      picture: photos[0].value,
+      firstName: name?.givenName || '',
+      lastName: name?.familyName || '',
+      picture: photos && photos.length > 0 ? photos[0].value : '',
       accessToken,
       refreshToken,
     };
